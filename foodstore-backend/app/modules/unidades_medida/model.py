@@ -1,6 +1,9 @@
 from enum import Enum
-from typing import Optional
-from sqlmodel import SQLModel, Field
+from typing import TYPE_CHECKING, List, Optional
+from sqlmodel import SQLModel, Field, Relationship
+
+if TYPE_CHECKING:
+    from app.modules.productos.model import Producto
 
 
 class TipoUnidadMedida(str, Enum):
@@ -27,4 +30,7 @@ class UnidadMedida(SQLModel, table=True):
     nombre: str = Field(unique=True, index=True, min_length=2, max_length=50)
     simbolo: str = Field(unique=True, min_length=1, max_length=10)
     tipo: TipoUnidadMedida = Field(index=True)
+
+    # Relación 1:N bidireccional con Producto
+    productos: List["Producto"] = Relationship(back_populates="unidad_venta")
 

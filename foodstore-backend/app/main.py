@@ -3,10 +3,17 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Session
+# 1. Importar todos los modelos primero para que SQLModel y SQLAlchemy
+# resuelvan las relaciones cruzadas (Relationship) sin conflictos de mapper
+import app.modules.unidades_medida.model  # noqa: F401
+import app.modules.categorias.model       # noqa: F401
+import app.modules.productos.model        # noqa: F401
+
 from app.core.database import create_db_and_tables, engine
 from app.core.seed import seed_unidades_medida
 from app.modules.unidades_medida.router import router as unidades_router
 from app.modules.categorias.router import router as categorias_router
+from app.modules.productos.router import router as productos_router
 
 
 # 1. Ciclo de vida moderno de FastAPI (Lifespan)
@@ -48,6 +55,8 @@ app.add_middleware(
 
 # 4. Inclusión de los routers bajo el prefijo /api/v1
 app.include_router(unidades_router, prefix="/api/v1")
+app.include_router(categorias_router, prefix="/api/v1")
+app.include_router(productos_router, prefix="/api/v1")
 
 
 # 5. Endpoint simple de salud de la API
@@ -59,4 +68,3 @@ def health_check():
         "service": "Food Store API",
         "docs": "/docs"
     }
-

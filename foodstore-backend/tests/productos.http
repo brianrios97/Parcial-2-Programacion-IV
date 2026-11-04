@@ -1,0 +1,259 @@
+### ==============================================================================
+### Food Store - Pruebas HTTP del Módulo Productos (Issue #3 / Requerimiento 2)
+### Compatible con la extensión REST Client de VS Code
+### ==============================================================================
+
+@baseUrl = http://127.0.0.1:8000/api/v1
+
+### ------------------------------------------------------------------------------
+### 1. CATÁLOGO BASE DE UNIDADES DE MEDIDA (Para conocer los IDs disponibles)
+### ------------------------------------------------------------------------------
+# @name getUnidades
+GET {{baseUrl}}/unidades-medida
+Accept: application/json
+
+### ------------------------------------------------------------------------------
+### 2. CREACIÓN DE PRODUCTOS (POST /productos - 201 Created)
+### ------------------------------------------------------------------------------
+
+### 2.1 Crear producto con unidad de PESO (permite decimales en stock)
+# @name createProductoPeso
+POST {{baseUrl}}/productos
+Content-Type: application/json
+
+{
+  "nombre": "Masa para Pizza Artesanal",
+  "descripcion": "Bollos de masa fermentada 24hs",
+  "precio_base": 1500.00,
+  "unidad_venta_id": 1,
+  "stock_cantidad": 12.50,
+  "disponible": true
+}
+
+### 2.2 Crear producto con unidad CONTABLE (stock entero)
+# @name createProductoContable
+POST {{baseUrl}}/productos
+Content-Type: application/json
+
+{
+  "nombre": "Empanada de Jamón y Queso",
+  "descripcion": "Empanada casera horneada",
+  "precio_base": 850.00,
+  "unidad_venta_id": 5,
+  "stock_cantidad": 24.0,
+  "disponible": true
+}
+
+### 2.3 Crear producto sin existencias iniciales (stock = 0 -> hay_stock = false)
+# @name createProductoSinStock
+POST {{baseUrl}}/productos
+Content-Type: application/json
+
+{
+  "nombre": "Cerveza Artesanal IPA 500cc",
+  "descripcion": "Lata de cerveza tirada artesanal",
+  "precio_base": 2200.00,
+  "unidad_venta_id": 5,
+  "stock_cantidad": 0.0,
+  "disponible": true
+}
+
+### ------------------------------------------------------------------------------
+### 3. CONSULTA Y FILTROS (GET /productos - 200 OK)
+### ------------------------------------------------------------------------------
+
+### 3.1 Listar productos activos (Paginación por defecto skip=0, limit=10)
+GET {{baseUrl}}/productos
+Accept: application/json
+
+### 3.2 Paginación personalizada (skip=0, limit=2)
+GET {{baseUrl}}/productos?skip=0&limit=2
+Accept: application/json
+
+### 3.3 Filtro por Disponibilidad (solo disponibles = true)
+GET {{baseUrl}}/productos?disponible=true
+Accept: application/json
+
+### 3.4 Filtro por Búsqueda de texto (search="pizza")
+GET {{baseUrl}}/productos?search=pizza
+Accept: application/json
+
+### 3.5 Filtro por Categoría clasificada (categoria_id=1)
+GET {{baseUrl}}/productos?categoria_id=1
+Accept: application/json
+
+### 3.6 Filtro por Activo (solo anulados = false)
+GET {{baseUrl}}/productos?activo=false
+Accept: application/json
+
+### 3.7 Detalle de producto por ID (GET /productos/{id})
+GET {{baseUrl}}/productos/1
+Accept: application/json
+
+
+### ------------------------------------------------------------------------------
+### 4. ACTUALIZACIÓN (PUT /productos/{id} - 200 OK)
+### ------------------------------------------------------------------------------
+
+### 4.1 Actualizar precio, pausar venta (disponible = false) sin alterar stock
+PUT {{baseUrl}}/productos/1
+Content-Type: application/json
+
+{
+  "nombre": "Masa para Pizza Artesanal Premium",
+  "descripcion": "Fermentación fría 48hs con masa madre",
+  "precio_base": 1800.00,
+  "unidad_venta_id": 1,
+  "stock_cantidad": 12.50,
+  "disponible": false
+}
+
+
+### ------------------------------------------------------------------------------
+### 5. DEMOSTRACIÓN DE CAMPO CALCULADO: hay_stock (RN-11)
+### ------------------------------------------------------------------------------
+
+### 5.1 Verificar hay_stock antes de agotar existencias (debe ser true)
+GET {{baseUrl}}/productos/2
+Accept: application/json
+
+### 5.2 Llevar stock a 0 mediante PUT
+PUT {{baseUrl}}/productos/2
+Content-Type: application/json
+
+{
+  "nombre": "Empanada de Jamón y Queso",
+  "descripcion": "Empanada casera horneada",
+  "precio_base": 850.00,
+  "unidad_venta_id": 5,
+  "stock_cantidad": 0.0,
+  "disponible": true
+}
+
+### 5.3 Verificar hay_stock después de agotar existencias (debe ser false)
+GET {{baseUrl}}/productos/2
+Accept: application/json
+
+
+### ------------------------------------------------------------------------------
+### 6. BAJA LÓGICA (DELETE /productos/{id} - 204 No Content)
+### ------------------------------------------------------------------------------
+
+### 6.1 Anular producto 1 (marca activo = false, anulado_at = fecha actual)
+DELETE {{baseUrl}}/productos/1
+
+### 6.2 Verificar que ya no aparece en el listado por defecto de activos
+GET {{baseUrl}}/productos
+Accept: application/json
+
+### 6.3 Verificar que sí aparece en el listado de anulados (activo=false)
+GET {{baseUrl}}/productos?activo=false
+Accept: application/json
+
+
+### ------------------------------------------------------------------------------
+### 7. CASOS DE ERROR: 422 UNPROCESSABLE ENTITY (Validaciones y RN-10)
+### ------------------------------------------------------------------------------
+
+### 7.1 Error 422: Nombre con menos de 3 caracteres (RN-01)
+POST {{baseUrl}}/productos
+Content-Type: application/json
+
+{
+  "nombre": "Em",
+  "precio_base": 500.00,
+  "unidad_venta_id": 5,
+  "stock_cantidad": 10.0,
+  "disponible": true
+}
+
+### 7.2 Error 422: Precio base negativo (RN-01)
+POST {{baseUrl}}/productos
+Content-Type: application/json
+
+{
+  "nombre": "Producto Precio Negativo",
+  "precio_base": -150.00,
+  "unidad_venta_id": 5,
+  "stock_cantidad": 10.0,
+  "disponible": true
+}
+
+### 7.3 Error 422: Stock negativo (RN-01)
+POST {{baseUrl}}/productos
+Content-Type: application/json
+
+{
+  "nombre": "Producto Stock Negativo",
+  "precio_base": 500.00,
+  "unidad_venta_id": 5,
+  "stock_cantidad": -5.0,
+  "disponible": true
+}
+
+### 7.4 Error 422 (RN-10): Stock con decimales sobre unidad CONTABLE (ej. 2.5 unidades)
+POST {{baseUrl}}/productos
+Content-Type: application/json
+
+{
+  "nombre": "Tarta Individual",
+  "descripcion": "Tarta de verdura",
+  "precio_base": 1200.00,
+  "unidad_venta_id": 5,
+  "stock_cantidad": 2.5,
+  "disponible": true
+}
+
+
+### ------------------------------------------------------------------------------
+### 8. CASOS DE ERROR: 404 NOT FOUND (Entidades Inexistentes - RN-03)
+### ------------------------------------------------------------------------------
+
+### 8.1 Error 404: Consultar producto inexistente por ID
+GET {{baseUrl}}/productos/99999
+Accept: application/json
+
+### 8.2 Error 404: Crear producto con unidad_venta_id inexistente
+POST {{baseUrl}}/productos
+Content-Type: application/json
+
+{
+  "nombre": "Producto con Unidad Inexistente",
+  "precio_base": 500.00,
+  "unidad_venta_id": 99999,
+  "stock_cantidad": 10.0,
+  "disponible": true
+}
+
+
+### ------------------------------------------------------------------------------
+### 9. CASOS DE ERROR: 409 CONFLICT (Reglas de Integridad RN-02, RN-04, RN-05)
+### ------------------------------------------------------------------------------
+
+### 9.1 Error 409 (RN-02): Nombre repetido entre productos activos (case-insensitive)
+POST {{baseUrl}}/productos
+Content-Type: application/json
+
+{
+  "nombre": "empanada de jamón y queso",
+  "precio_base": 900.00,
+  "unidad_venta_id": 5,
+  "stock_cantidad": 10.0,
+  "disponible": true
+}
+
+### 9.2 Error 409 (RN-04): Anular un producto que ya se encuentra anulado
+DELETE {{baseUrl}}/productos/1
+
+### 9.3 Error 409 (RN-05): Intentar modificar (PUT) un producto anulado
+PUT {{baseUrl}}/productos/1
+Content-Type: application/json
+
+{
+  "nombre": "Masa Modificada Tras Anular",
+  "precio_base": 2000.00,
+  "unidad_venta_id": 1,
+  "stock_cantidad": 10.0,
+  "disponible": true
+}
+
