@@ -6,6 +6,7 @@ from sqlmodel import Session
 from app.core.database import create_db_and_tables, engine
 from app.core.seed import seed_unidades_medida
 from app.modules.unidades_medida.router import router as unidades_router
+from app.modules.categorias.router import router as categorias_router
 
 
 # 1. Ciclo de vida moderno de FastAPI (Lifespan)
