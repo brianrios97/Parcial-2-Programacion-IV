@@ -1,6 +1,8 @@
 from datetime import datetime
-from typing import Optional
-from sqlmodel import SQLModel, Field
+from typing import List, Optional
+from sqlmodel import SQLModel, Field, Relationship
+
+from app.modules.productos_categorias.model import ProductoCategoria
 
 
 class Categoria(SQLModel, table=True):
@@ -18,3 +20,8 @@ class Categoria(SQLModel, table=True):
     activo: bool = Field(default=True, nullable=False, index=True)
     anulado_at: Optional[datetime] = Field(default=None, nullable=True)
 
+    # Relación N:N con Producto a través del link model ProductoCategoria
+    productos: List["Producto"] = Relationship(  # type: ignore[name-defined]
+        back_populates="categorias",
+        link_model=ProductoCategoria
+    )

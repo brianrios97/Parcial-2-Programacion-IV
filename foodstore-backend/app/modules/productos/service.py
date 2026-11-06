@@ -11,6 +11,8 @@ from app.modules.productos.schema import (
     CategoriaSimple,
 )
 from app.modules.unidades_medida.model import UnidadMedida, TipoUnidadMedida
+from app.modules.productos_categorias.model import ProductoCategoria
+from app.modules.categorias.model import Categoria
 
 
 class ProductoService:
@@ -102,18 +104,22 @@ class ProductoService:
                     tipo=unidad_db.tipo,
                 )
 
-        # Categorías asignadas (enlazadas en Issue #4 si existen)
+        # Categorías asignadas (consulta directa a ProductoCategoria)
         categorias_dto: List[CategoriaSimple] = []
-        if hasattr(producto, "producto_categorias") and producto.producto_categorias:
-            for pc in producto.producto_categorias:
-                if pc.categoria and pc.categoria.activo:
-                    categorias_dto.append(
-                        CategoriaSimple(
-                            id=pc.categoria.id,
-                            nombre=pc.categoria.nombre,
-                            es_principal=pc.es_principal,
-                        )
-                    )
+        from app.modules.productos_categorias.model import ProductoCategoria
+        from app.modules.categorias.model import Categoria
+        stmt_cats = select(ProductoCategoria).where(
+            ProductoCategoria.producto_id == producto.id
+        )
+        links = self.session.exec(stmt_cats).all()
+        for link in links:
+            cat = self.session.get(Categoria, link.categoria_id)
+            if cat:
+                categorias_dto.append(CategoriaSimple(
+                    id=cat.id,  # type: ignore
+                    nombre=cat.nombre,
+                    es_principal=link.es_principal,
+                ))
 
         # RN-11: hay_stock calculado
         hay_stock = bool(producto.stock_cantidad > 0)
@@ -190,14 +196,13 @@ class ProductoService:
         if search:
             stmt = stmt.where(func.lower(Producto.nombre).contains(search.strip().lower()))
 
-        # Filtro por categoría (soporte para Issue #4)
+        # Filtro por categoría vía tabla intermedia ProductoCategoria (Issue #4)
         if categoria_id is not None:
-            try:
-                from app.modules.productos_categorias.model import ProductoCategoria
-                stmt = stmt.join(ProductoCategoria).where(ProductoCategoria.categoria_id == categoria_id)
-            except ImportError:
-                # Si aún no existe el módulo de la relación N:N, no rompe
-                pass
+            from app.modules.productos_categorias.model import ProductoCategoria
+            stmt = stmt.join(
+                ProductoCategoria,
+                Producto.id == ProductoCategoria.producto_id
+            ).where(ProductoCategoria.categoria_id == categoria_id)
 
         stmt = stmt.offset(skip).limit(limit)
         productos = self.session.exec(stmt).all()

@@ -1,0 +1,212 @@
+### ==============================================================================
+### Food Store - Pruebas HTTP: Relaciones N:N Producto-Categoría (Issue #4 / Req. 3)
+### Compatible con la extensión REST Client de VS Code
+### ==============================================================================
+
+@baseUrl = http://127.0.0.1:8000/api/v1
+
+### ------------------------------------------------------------------------------
+### 1. SETUP: Crear categorías de prueba
+### ------------------------------------------------------------------------------
+
+### 1.1 Crear categoría "Pastas"
+# @name crearPastas
+POST {{baseUrl}}/categorias
+Content-Type: application/json
+
+{
+  "nombre": "Pastas",
+  "descripcion": "Pastas frescas y secas"
+}
+
+### 1.2 Crear categoría "Platos Principales"
+# @name crearPlatos
+POST {{baseUrl}}/categorias
+Content-Type: application/json
+
+{
+  "nombre": "Platos Principales",
+  "descripcion": "Platos de fondo del menú"
+}
+
+### 1.3 Error 409 (RN-02): Nombre repetido en categorías activas
+POST {{baseUrl}}/categorias
+Content-Type: application/json
+
+{
+  "nombre": "Pastas",
+  "descripcion": "Duplicado intencional"
+}
+
+### ------------------------------------------------------------------------------
+### 2. SETUP: Crear producto de prueba
+### ------------------------------------------------------------------------------
+
+### 2.1 Crear producto "Fettuccine Bolognesa"
+# @name crearProducto
+POST {{baseUrl}}/productos
+Content-Type: application/json
+
+{
+  "nombre": "Fettuccine Bolognesa",
+  "descripcion": "Pasta fresca con salsa bolognesa casera",
+  "precio_base": 3200.00,
+  "unidad_venta_id": 5,
+  "stock_cantidad": 15.0,
+  "disponible": true
+}
+
+### ------------------------------------------------------------------------------
+### 3. CLASIFICAR PRODUCTO EN CATEGORÍAS (POST /productos/{id}/categorias)
+### ------------------------------------------------------------------------------
+
+### 3.1 Clasificar en "Pastas" como categoría PRINCIPAL (es_principal: true)
+# Usar los IDs de los recursos creados arriba
+# @name clasificarEnPastas
+POST {{baseUrl}}/productos/1/categorias
+Content-Type: application/json
+
+{
+  "categoria_id": 1,
+  "es_principal": true
+}
+
+### 3.2 Clasificar en "Platos Principales" (NO es principal)
+POST {{baseUrl}}/productos/1/categorias
+Content-Type: application/json
+
+{
+  "categoria_id": 2,
+  "es_principal": false
+}
+
+### 3.3 Verificar que el producto tiene 2 categorías y que "Pastas" sigue siendo principal
+GET {{baseUrl}}/productos/1/categorias
+Accept: application/json
+
+### 3.4 Reclasificar: "Platos Principales" pasa a ser la nueva principal
+###     → "Pastas" pierde es_principal automáticamente (RN-09)
+POST {{baseUrl}}/productos/1/categorias
+Content-Type: application/json
+
+{
+  "categoria_id": 2,
+  "es_principal": true
+}
+
+### NOTA: el endpoint anterior fallará con 409 (RN-07) porque ya está clasificado.
+### Para demostrar RN-09 crea un nuevo producto y clasifícalo:
+
+# @name crearProducto2
+POST {{baseUrl}}/productos
+Content-Type: application/json
+
+{
+  "nombre": "Lasagna de Verdura",
+  "precio_base": 2800.00,
+  "unidad_venta_id": 5,
+  "stock_cantidad": 8.0
+}
+
+POST {{baseUrl}}/productos/2/categorias
+Content-Type: application/json
+
+{
+  "categoria_id": 1,
+  "es_principal": true
+}
+
+POST {{baseUrl}}/productos/2/categorias
+Content-Type: application/json
+
+{
+  "categoria_id": 2,
+  "es_principal": true
+}
+
+### Verificar: "Pastas" tiene es_principal=false; "Platos Principales" es_principal=true (RN-09)
+GET {{baseUrl}}/productos/2/categorias
+Accept: application/json
+
+### ------------------------------------------------------------------------------
+### 4. LISTAR CATEGORÍAS DE UN PRODUCTO (GET /productos/{id}/categorias)
+### ------------------------------------------------------------------------------
+
+GET {{baseUrl}}/productos/1/categorias
+Accept: application/json
+
+
+### ------------------------------------------------------------------------------
+### 5. DETALLE DE PRODUCTO: categorías anidadas en ProductoPublic
+### ------------------------------------------------------------------------------
+
+GET {{baseUrl}}/productos/1
+Accept: application/json
+
+
+### ------------------------------------------------------------------------------
+### 6. FILTRO por categoria_id en listado de productos
+### ------------------------------------------------------------------------------
+
+### Listar todos los productos de la categoría "Pastas" (categoria_id=1)
+GET {{baseUrl}}/productos?categoria_id=1
+Accept: application/json
+
+### Listar todos los productos de "Platos Principales" (categoria_id=2)
+GET {{baseUrl}}/productos?categoria_id=2
+Accept: application/json
+
+
+### ------------------------------------------------------------------------------
+### 7. CASOS DE ERROR: 409 CONFLICT - Reglas de Integridad N:N
+### ------------------------------------------------------------------------------
+
+### 7.1 Error 409 (RN-07): Intentar clasificar DOS VECES en la misma categoría
+POST {{baseUrl}}/productos/1/categorias
+Content-Type: application/json
+
+{
+  "categoria_id": 1,
+  "es_principal": false
+}
+
+### 7.2 Preparar: Anular la categoría "Pastas"
+DELETE {{baseUrl}}/categorias/1
+
+### 7.3 Verificar que sus productos siguen activos (RN-06)
+GET {{baseUrl}}/productos/1
+Accept: application/json
+
+### 7.4 Error 409 (RN-08): Intentar clasificar en una CATEGORÍA ANULADA
+POST {{baseUrl}}/productos/2/categorias
+Content-Type: application/json
+
+{
+  "categoria_id": 1,
+  "es_principal": false
+}
+
+### 7.5 Preparar: Anular el producto "Lasagna de Verdura"
+DELETE {{baseUrl}}/productos/2
+
+### 7.6 Error 409 (RN-08): Intentar clasificar un PRODUCTO ANULADO
+POST {{baseUrl}}/productos/2/categorias
+Content-Type: application/json
+
+{
+  "categoria_id": 2,
+  "es_principal": false
+}
+
+### ------------------------------------------------------------------------------
+### 8. VERIFICAR INDEPENDENCIA DE ESTADOS (RN-06)
+### Anular una categoría no afecta a los productos que tenía clasificados
+### ------------------------------------------------------------------------------
+
+### El producto 1 debe seguir activo y disponible aunque "Pastas" esté anulada
+GET {{baseUrl}}/productos/1
+Accept: application/json
+
+### Ver el producto en el listado general (sigue apareciendo como activo)
+GET {{baseUrl}}/productos
+Accept: application/json

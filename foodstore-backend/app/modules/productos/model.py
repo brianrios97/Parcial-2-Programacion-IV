@@ -1,9 +1,12 @@
 from datetime import datetime
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, List, Optional
 from sqlmodel import SQLModel, Field, Relationship, Column, DateTime
 
 if TYPE_CHECKING:
     from app.modules.unidades_medida.model import UnidadMedida
+    from app.modules.categorias.model import Categoria
+
+from app.modules.productos_categorias.model import ProductoCategoria
 
 
 class Producto(SQLModel, table=True):
@@ -37,3 +40,8 @@ class Producto(SQLModel, table=True):
     # Relación 1:N bidireccional con UnidadMedida
     unidad_venta: Optional["UnidadMedida"] = Relationship(back_populates="productos")
 
+    # Relación N:N bidireccional con Categoria a través del link model ProductoCategoria
+    categorias: List["Categoria"] = Relationship(
+        back_populates="productos",
+        link_model=ProductoCategoria
+    )
