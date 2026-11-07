@@ -210,3 +210,4 @@ Accept: application/json
 ### Ver el producto en el listado general (sigue apareciendo como activo)
 GET {{baseUrl}}/productos
 Accept: application/json
+
